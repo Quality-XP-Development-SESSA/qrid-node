@@ -153,6 +153,20 @@ npm test
 npm run build   # emits dist/ (JS + .d.ts)
 ```
 
+## Publishing
+
+Releases to npm are fully automated — there is no manual `npm publish` step:
+
+1. Bump `version` in `package.json` and merge to `main`.
+2. [`release.yml`](.github/workflows/release.yml) runs on every push to `main`. It reads the version from `package.json`; if no `vX.Y.Z` tag already exists for it, it runs the test suite and creates that tag plus a GitHub Release.
+3. In that same run, `release.yml` calls [`publish.yml`](.github/workflows/publish.yml) as a reusable workflow, which re-runs the tests across supported Node versions and publishes to npm using [Trusted Publishing (OIDC)](https://docs.npmjs.com/trusted-publishers) with provenance — no stored `NPM_TOKEN`.
+
+`publish.yml` is invoked directly as a job (`workflow_call`) rather than relying on the `release: published` event, because releases created with the Actions-internal `GITHUB_TOKEN` don't trigger other workflows via events (GitHub's anti-recursion guard). `publish.yml` also accepts `release: published` (for a release cut by hand) and `workflow_dispatch` (manual re-run) as a fallback.
+
+Pushes to `main` that don't change the version are a no-op for `release.yml` (the tag already exists), so unrelated commits (docs, CI tweaks) don't trigger a release.
+
+**One-time npm setup** (documented here for reference): on the package's [Settings page](https://www.npmjs.com/package/@qxdev/qrid/access) → **Trusted Publisher** → add a GitHub Actions publisher with owner `Quality-XP-Development-SESSA`, repository `qrid-node`, workflow filename `publish.yml`, and environment name `npm`; the same `npm` environment must exist under the repo's GitHub Settings → Environments. Requires npm CLI >= 11.5.1, which the workflow installs explicitly since the GitHub-hosted runner's bundled npm is often older.
+
 ## License
 
 MIT
