@@ -162,9 +162,14 @@ Releases to npm are fully automated — there is no manual `npm publish` step:
 
 1. Bump `version` in `package.json` and merge to `main`.
 2. [`release.yml`](.github/workflows/release.yml) runs on every push to `main`. It reads the version from `package.json`; if no `vX.Y.Z` tag already exists for it, it runs the test suite and creates that tag plus a GitHub Release.
-3. In that same run, `release.yml` calls [`publish.yml`](.github/workflows/publish.yml) as a reusable workflow, which re-runs the tests across supported Node versions and publishes to npm using [Trusted Publishing (OIDC)](https://docs.npmjs.com/trusted-publishers) with provenance — no stored `NPM_TOKEN`.
+3. In that same run, `release.yml` dispatches [`publish.yml`](.github/workflows/publish.yml) via the GitHub API (`gh workflow run publish.yml`), which re-runs the tests across supported Node versions and publishes to npm using [Trusted Publishing (OIDC)](https://docs.npmjs.com/trusted-publishers) with provenance — no stored `NPM_TOKEN`.
 
-`publish.yml` is invoked directly as a job (`workflow_call`) rather than relying on the `release: published` event, because releases created with the Actions-internal `GITHUB_TOKEN` don't trigger other workflows via events (GitHub's anti-recursion guard). `publish.yml` also accepts `release: published` (for a release cut by hand) and `workflow_dispatch` (manual re-run) as a fallback.
+`publish.yml` is dispatched as an independent, top-level run via the Actions API rather than invoked as a reusable workflow (`workflow_call`) or relying on the `release: published` event. Both alternatives were tried and both are broken for this use case:
+
+- `release: published` never fires for releases created with the Actions-internal `GITHUB_TOKEN` (GitHub's anti-recursion guard).
+- `workflow_call` chaining runs `publish.yml` as a job *within* `release.yml`'s own run, so the OIDC certificate's build-config claim identifies the caller (`release.yml`) instead of `publish.yml` — the registry's Trusted Publisher verification then rejects the upload (confirmed via PyPI's equivalent error for the sibling `qrid-python` package; PyPI's docs explicitly state reusable workflows are unsupported for Trusted Publishing, and npm's OIDC verification is understood to have the same limitation).
+
+A `workflow_dispatch` API call made with `GITHUB_TOKEN` is explicitly exempt from the anti-recursion guard and starts a genuine new top-level run of `publish.yml`, so its OIDC certificate correctly identifies `publish.yml` as the source. `publish.yml` also still accepts `release: published` (for a release cut by hand) and `workflow_dispatch` (manual re-run) as a fallback.
 
 Pushes to `main` that don't change the version are a no-op for `release.yml` (the tag already exists), so unrelated commits (docs, CI tweaks) don't trigger a release.
 
