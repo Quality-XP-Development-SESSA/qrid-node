@@ -165,7 +165,7 @@ Releases to npm are fully automated — there is no manual `npm publish` step:
 
 Pushes to `main` that don't change the version are a no-op for `release.yml` (the tag already exists), so unrelated commits (docs, CI tweaks) don't trigger a release.
 
-**One-time npm setup** (documented here for reference): on the package's [Settings page](https://www.npmjs.com/package/@qxdev/qrid/access) → **Trusted Publisher** → add a GitHub Actions publisher with owner `Quality-XP-Development-SESSA`, repository `qrid-node`, workflow filename `publish.yml`, and environment name `npm`; the same `npm` environment must exist under the repo's GitHub Settings → Environments. Requires npm CLI >= 11.5.1, which the workflow installs explicitly since the GitHub-hosted runner's bundled npm is often older.
+**One-time npm setup** (documented here for reference): on the package's [Settings page](https://www.npmjs.com/package/@qxdev/qrid/access) → **Trusted Publisher** → add a GitHub Actions publisher with owner `Quality-XP-Development-SESSA`, repository `qrid-node`, workflow filename `publish.yml`, and environment name `npm`; the same `npm` environment must exist under the repo's GitHub Settings → Environments. Requires npm CLI >= 11.5.1; the publish job uses Node 24 (bundles npm 11.16+) rather than upgrading npm in place, since a global `npm install -g npm@latest` on GitHub-hosted runners is known to leave a broken install (missing the optional `sigstore` dependency needed for `--provenance`).
 
 ## License
 
