@@ -15,7 +15,7 @@ sequenceDiagram
     participant App as MergeID App
 
     Staff->>ERP: create invoice
-    ERP->>Lib: encodeQRId(code, id, company, email, address)
+    ERP->>Lib: encodeQRId(id, company, email, address, activityCode)
     Lib-->>ERP: SVG QR code
     ERP->>QR: print / embed on invoice
 
@@ -23,7 +23,7 @@ sequenceDiagram
     App->>QR: scan with camera
     QR-->>App: base64 payload string
     App->>Lib: decodeQRId(encoded)
-    Lib-->>App: { v, code, id, company, email, address }
+    Lib-->>App: { v, id, company, email, address, activity_code }
     App-->>Staff: display verified invoice identity
 ```
 
@@ -49,12 +49,12 @@ import { decodeQRId } from '@qxdev/qrid';
 // `encoded` is the raw string value scanned from a MergeID QR code
 const payload = decodeQRId(encoded);
 
-console.log(payload.v);       // Payload schema version (number, currently 1)
-console.log(payload.code);    // Installation / activity code  (e.g. "ACT-001")
-console.log(payload.id);      // Tax or company ID              (e.g. "3101679980")
-console.log(payload.company); // Company legal name
-console.log(payload.email);   // Billing e-mail address
-console.log(payload.address); // Physical address
+console.log(payload.v);             // Payload schema version (number, currently 1)
+console.log(payload.id);            // Tax or company ID              (e.g. "3101679980")
+console.log(payload.company);       // Company legal name
+console.log(payload.email);         // Billing e-mail address
+console.log(payload.address);       // Physical address
+console.log(payload.activity_code); // Installation / activity code (e.g. "ACT-001"), or "" if blank
 ```
 
 `decodeQRId` trims surrounding whitespace from the input before decoding, so strings
@@ -87,17 +87,20 @@ try {
 import { encodeQRId } from '@qxdev/qrid';
 
 const svg = await encodeQRId(
-  'ACT-001',
   '3101679980',
   'Acme Corp S.A.',
   'billing@acme.example',
   '123 Main St, San José, Costa Rica',
+  'ACT-001',
 );
 
 // Serve as an image
 res.setHeader('Content-Type', 'image/svg+xml');
 res.send(svg);
 ```
+
+`activityCode` is optional and defaults to `''` (blank). A blank activity code signals a
+consuming system to generate an electronic ticket instead of using an activity code.
 
 > **Note:** `encodeQRId` is async because the underlying `qrcode` library uses async
 > rendering. The PHP equivalent (`Codec::encodeQRId`) is synchronous — this is the
@@ -116,22 +119,22 @@ The QR code data is a UTF-8 JSON object encoded as standard base64 (no line-brea
 ```json
 {
   "v": 1,
-  "code": "ACT-001",
   "id": "3101679980",
   "company": "Acme Corp S.A.",
   "email": "billing@acme.example",
-  "address": "123 Main St, San José, Costa Rica"
+  "address": "123 Main St, San José, Costa Rica",
+  "activity_code": "ACT-001"
 }
 ```
 
 | Field | Type | Description |
 | --- | --- | --- |
 | `v` | `number` | Payload schema version. Currently always `1`. |
-| `code` | `string` | Installation or activity code that links the QR to an internal record. |
 | `id` | `string` | Tax / company registration ID. |
 | `company` | `string` | Legal company name (UTF-8, including accented characters). |
 | `email` | `string` | Primary billing or contact e-mail address. |
 | `address` | `string` | Physical address of the company. |
+| `activity_code` | `string` | Installation or activity code that links the QR to an internal record. May be blank (`""`), which signals a consuming system to generate an electronic ticket instead. |
 
 ## Requirements
 

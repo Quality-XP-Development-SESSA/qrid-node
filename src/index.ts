@@ -2,11 +2,11 @@ const BASE64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
 
 export interface QRIdPayload {
   v: number;
-  code: string;
   id: string;
   company: string;
   email: string;
   address: string;
+  activity_code: string;
 }
 
 /**
@@ -39,11 +39,11 @@ export function decodeQRId(encoded: string): QRIdPayload {
  * @throws Error When the `qrcode` peer dependency is not installed.
  */
 export async function encodeQRId(
-  code: string,
   id: string,
   company: string,
   email: string,
   address: string,
+  activityCode: string = '',
 ): Promise<string> {
   let qrcode: typeof import('qrcode');
   try {
@@ -54,7 +54,14 @@ export async function encodeQRId(
     );
   }
 
-  const payload: QRIdPayload = { v: 1, code, id, company, email, address };
+  const payload: QRIdPayload = {
+    v: 1,
+    id,
+    company,
+    email,
+    address,
+    activity_code: activityCode,
+  };
   const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
 
   return qrcode.toString(encoded, { type: 'svg' });
